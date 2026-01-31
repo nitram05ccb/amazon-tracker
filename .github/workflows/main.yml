@@ -2,18 +2,18 @@ name: Rastreador Amazon
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Se ejecuta a las 08:00 UTC todos los días
-  workflow_dispatch:      # Permite ejecutarlo manualmente con un botón
+    - cron: '0 8 * * *'
+  workflow_dispatch:
 
 permissions:
-  contents: write         # PERMISO CRÍTICO: Para poder guardar el CSV
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar código del repositorio
+      - name: Descargar código
         uses: actions/checkout@v4
 
       - name: Instalar Python
@@ -28,10 +28,20 @@ jobs:
       - name: Ejecutar Rastreador
         run: python main.py
 
-      - name: Guardar cambios (CSV)
+      # --- NUEVO PASO MÁGICO ---
+      # Si se generan imágenes de error (screenshots), súbelas para que yo las vea
+      - name: Subir Capturas de Error
+        if: always()  # Se ejecuta aunque el script falle
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-error
+          path: "*.png"
+          retention-days: 5
+
+      - name: Guardar CSV
         run: |
           git config --global user.name 'GitHub Action Bot'
           git config --global user.email 'action@github.com'
           git add historial_precios.csv
-          git commit -m "Actualización automática de precios" || echo "Nada que actualizar"
+          git commit -m "Update precios" || echo "Nada nuevo"
           git push
