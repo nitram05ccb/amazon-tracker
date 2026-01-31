@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 # --- CONFIGURACIÓN ---
 URLS_A_RASTREAR = [
     "https://www.amazon.es/dp/B0DN6ZQ3PD", 
-    "https://www.amazon.es/dp/B0BCQS37R7"
+    "https://www.amazon.es/dp/B0BCQS37R7",
     "https://www.amazon.es/dp/B0DC8RVRBZ"
 ]
 
