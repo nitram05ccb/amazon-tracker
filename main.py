@@ -148,7 +148,7 @@ def rastrear_amazon():
 
             # FOTO DE EVIDENCIA
             # Útil para ver si ahora pone "Enviar a Madrid"
-            driver.save_screenshot(f"evidencia_{asin}.png")
+            #driver.save_screenshot(f"evidencia_{asin}.png")
 
             print(f"   ✅ {titulo[:20]}... -> {precio_encontrado}")
             
