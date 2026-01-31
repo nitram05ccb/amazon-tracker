@@ -30,12 +30,12 @@ jobs:
 
       # --- NUEVO PASO MÁGICO ---
       # Si se generan imágenes de error (screenshots), súbelas para que yo las vea
-      - name: Subir Capturas de Error
-        if: always()  # Se ejecuta aunque el script falle
+      - name: Subir Evidencias Visuales
+        if: always() 
         uses: actions/upload-artifact@v4
         with:
-          name: capturas-error
-          path: "*.png"
+          name: evidencias-precios
+          path: "*.png"   # Subirá todas las fotos .png que encuentre
           retention-days: 5
 
       - name: Guardar CSV
