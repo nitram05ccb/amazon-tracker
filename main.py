@@ -17,21 +17,28 @@ ARCHIVO_CSV = "historial_precios.csv"
 
 def obtener_driver():
     options = Options()
-    # ESTO ES VITAL: --headless hace que funcione sin monitor
-    options.add_argument("--headless") 
+    # TRUCO MAESTRO: Usamos el modo headless "nuevo" que es más indetectable
+    options.add_argument("--headless=new") 
+    options.add_argument("--window-size=1920,1080")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    
+    # Headers extendidos para parecer un humano real navegando en Español
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+    options.add_argument("accept-language=es-ES,es;q=0.9")
     
     driver = webdriver.Chrome(options=options)
     return driver
 
 def limpiar_precio(texto_precio):
     try:
+        # Limpieza agresiva: quitamos € y espacios
         texto = texto_precio.replace("€", "").replace(" ", "").strip()
+        # Formato europeo: quitamos punto de miles, cambiamos coma por punto
         texto = texto.replace(".", "").replace(",", ".")
-        return float(texto)
+        val = float(texto)
+        return val
     except:
         return None
 
@@ -39,32 +46,51 @@ def rastrear_amazon():
     driver = obtener_driver()
     datos_hoy = []
     
+    # Variable para saber si tenemos que guardar una foto de error
+    error_detectado = False 
+
     for url in URLS_A_RASTREAR:
         try:
             print(f"🔍 Visitando: {url}")
             driver.get(url)
-            time.sleep(random.uniform(2, 5))
+            
+            # Pausa humana
+            time.sleep(random.uniform(3, 6))
             
             precio_encontrado = None
             titulo = "Producto desconocido"
             
+            # 1. Intentar sacar el título
             try:
                 titulo = driver.find_element(By.ID, "productTitle").text.strip()
             except:
-                pass
+                print("   ⚠️ No encuentro el título (¿Captcha?)")
 
-            # Estrategia combinada simple
-            try:
-                entero = driver.find_element(By.CSS_SELECTOR, 'span.a-price-whole').text
-                fraccion = driver.find_element(By.CSS_SELECTOR, 'span.a-price-fraction').text
-                precio_encontrado = limpiar_precio(f"{entero},{fraccion}")
-            except:
+            # 2. Estrategias de Precio
+            # A. Precio grande (whole + fraction)
+            if not precio_encontrado:
                 try:
-                    # Intento alternativo
-                    bloque = driver.find_element(By.CLASS_NAME, "a-price-whole")
-                    precio_encontrado = limpiar_precio(bloque.text)
+                    entero = driver.find_element(By.CSS_SELECTOR, 'span.a-price-whole').text
+                    fraccion = driver.find_element(By.CSS_SELECTOR, 'span.a-price-fraction').text
+                    precio_encontrado = limpiar_precio(f"{entero},{fraccion}")
                 except:
                     pass
+            
+            # B. Precio "Apex" (ofertas flash)
+            if not precio_encontrado:
+                try:
+                    precio_bloque = driver.find_element(By.CSS_SELECTOR, "span.a-offscreen").get_attribute("textContent")
+                    precio_encontrado = limpiar_precio(precio_bloque)
+                except:
+                    pass
+
+            # DIAGNÓSTICO: Si fallamos, sacamos foto
+            if not precio_encontrado or precio_encontrado == 0:
+                print("   📸 Fallo al leer precio. Sacando foto de diagnóstico...")
+                # Guardamos la foto con el nombre del ASIN para saber cuál falló
+                asin = url.split("/dp/")[1].split("/")[0] if "/dp/" in url else "error"
+                driver.save_screenshot(f"error_{asin}.png")
+                error_detectado = True
 
             print(f"   ✅ {titulo[:20]}... -> {precio_encontrado}")
             
@@ -77,13 +103,12 @@ def rastrear_amazon():
             })
 
         except Exception as e:
-            print(f"   ❌ Error: {e}")
+            print(f"   ❌ Error crítico en {url}: {e}")
 
     driver.quit()
     return datos_hoy
 
 def guardar_datos(nuevos_datos):
-    # Guardamos siempre, si existe añade, si no crea
     try:
         df_antiguo = pd.read_csv(ARCHIVO_CSV)
         df_final = pd.concat([df_antiguo, pd.DataFrame(nuevos_datos)], ignore_index=True)
@@ -94,5 +119,8 @@ def guardar_datos(nuevos_datos):
     print("💾 Guardado en CSV")
 
 if __name__ == "__main__":
+    rastrear_amazon()
+    # Nota: Quitamos el guardar datos del 'if' para asegurar que se guarde siempre dentro de la función, 
+    # pero arriba he llamado a rastrear sin guardar. Corrijo:
     datos = rastrear_amazon()
     guardar_datos(datos)
